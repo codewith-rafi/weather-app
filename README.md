@@ -1,5 +1,3 @@
-
-````markdown
 # Weather App
 
 A sleek and modern Flutter weather application that provides real-time weather updates, hourly forecasts, weekly forecasts, and detailed weather information for your current location. The app supports both dark and light modes and features a clean, user-friendly UI.
@@ -15,7 +13,7 @@ A sleek and modern Flutter weather application that provides real-time weather u
 
 ## Screenshot
 
-<img src="assets/ui.png" alt="Weather App Screenshot" width="600"> 
+<img src="assets/UI.png" alt="Weather App Screenshot" width="600"> 
 
 ## Getting Started
 
