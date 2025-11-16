@@ -1,30 +1,24 @@
 import 'dart:async';
 
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/material.dart';
+import 'package:weather_app/services/app_navigator.dart';
 
+/// Lightweight in-app "notification" service that uses Timers.
+/// This is a fallback for environments where the native plugin cannot be compiled.
+/// It schedules callbacks while the app is running and emits payloads on a stream.
 class NotificationService {
   NotificationService._internal();
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
 
-  final FlutterLocalNotificationsPlugin _fln =
-      FlutterLocalNotificationsPlugin();
   final StreamController<String?> _selectNotificationStream =
-      StreamController.broadcast();
-
+      StreamController<String?>.broadcast();
   Stream<String?> get onNotification => _selectNotificationStream.stream;
 
-  Future<void> init() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const ios = DarwinInitializationSettings();
-    final settings = InitializationSettings(android: android, iOS: ios);
+  final Map<int, Timer> _timers = {};
 
-    await _fln.initialize(
-      settings,
-      onDidReceiveNotificationResponse: (NotificationResponse resp) {
-        _selectNotificationStream.add(resp.payload);
-      },
-    );
+  Future<void> init() async {
+    // Nothing to initialize for the timer-based fallback.
   }
 
   Future<void> showImmediate(
@@ -33,16 +27,9 @@ class NotificationService {
     String body, {
     String? payload,
   }) async {
-    const android = AndroidNotificationDetails(
-      'weather_channel',
-      'Weather Reminders',
-      channelDescription: 'Reminder notifications with weather advice',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    const ios = DarwinNotificationDetails();
-    final details = NotificationDetails(android: android, iOS: ios);
-    await _fln.show(id, title, body, details, payload: payload);
+    // Deliver payload immediately to listeners and show a simple dialog/snackbar when possible.
+    _selectNotificationStream.add(payload);
+    _showInAppBanner(title, body);
   }
 
   Future<void> scheduleNotification(
@@ -52,38 +39,51 @@ class NotificationService {
     DateTime scheduledDate, {
     String? payload,
   }) async {
-    const android = AndroidNotificationDetails(
-      'weather_channel',
-      'Weather Reminders',
-      channelDescription: 'Reminder notifications with weather advice',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    const ios = DarwinNotificationDetails();
-    final details = NotificationDetails(android: android, iOS: ios);
+    // Cancel any existing timer for this id
+    await cancel(id);
 
-    if (scheduledDate.isBefore(DateTime.now())) {
-      // If time already passed, show immediately
+    final now = DateTime.now();
+    final diff = scheduledDate.difference(now);
+    if (diff <= Duration.zero) {
+      // Past -> immediate
       await showImmediate(id, title, body, payload: payload);
       return;
     }
 
-    await _fln.schedule(
-      id,
-      title,
-      body,
-      scheduledDate,
-      details,
-      payload: payload,
-      androidAllowWhileIdle: true,
-    );
+    final timer = Timer(diff, () {
+      _selectNotificationStream.add(payload);
+      _showInAppBanner(title, body);
+      _timers.remove(id);
+    });
+
+    _timers[id] = timer;
   }
 
   Future<void> cancel(int id) async {
-    await _fln.cancel(id);
+    final t = _timers.remove(id);
+    if (t != null && t.isActive) t.cancel();
+  }
+
+  void _showInAppBanner(String title, String body) {
+    final ctx = appNavigatorKey.currentState?.overlay?.context;
+    if (ctx != null) {
+      final messenger = ScaffoldMessenger.of(ctx);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('$title — $body'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } else {
+      debugPrint('Notification: $title - $body');
+    }
   }
 
   void dispose() {
+    for (final t in _timers.values) {
+      if (t.isActive) t.cancel();
+    }
+    _timers.clear();
     _selectNotificationStream.close();
   }
 }

@@ -139,20 +139,48 @@ class _WeatherScreenState extends State<WeatherScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            onPressed: widget.toggleTheme, // Toggle dark/light theme
+            onPressed: () {
+              try {
+                widget.toggleTheme(); // Toggle dark/light theme
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Toggled theme')));
+                debugPrint('Theme toggle pressed');
+              } catch (e) {
+                debugPrint('ToggleTheme error: $e');
+              }
+            },
             icon: Icon(Icons.brightness_6, color: iconColor),
           ),
           IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const EventListScreen()),
-              );
+            onPressed: () async {
+              try {
+                debugPrint('Calendar pressed');
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const EventListScreen()),
+                );
+              } catch (e) {
+                debugPrint('Calendar navigation error: $e');
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text('Navigation error: $e')));
+              }
             },
             icon: Icon(Icons.event, color: iconColor),
           ),
           IconButton(
-            onPressed: _refreshWeather, // Refresh weather manually
+            onPressed: () {
+              try {
+                _refreshWeather(); // Refresh weather manually
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Refreshing weather...')),
+                );
+                debugPrint('Refresh pressed');
+              } catch (e) {
+                debugPrint('Refresh error: $e');
+              }
+            },
             icon: Icon(Icons.refresh, color: iconColor),
           ),
         ],

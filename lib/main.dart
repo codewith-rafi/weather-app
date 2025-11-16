@@ -3,7 +3,7 @@ import 'package:weather_app/screen/weather_screen.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:weather_app/models/event.dart';
 import 'package:weather_app/services/notification_service.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:weather_app/services/app_navigator.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,10 +14,6 @@ Future<void> main() async {
   await Hive.openBox<Event>('events');
   // Initialize local notifications
   await NotificationService().init();
-  // Request notification permission on Android 13+ (and iOS as well)
-  try {
-    await Permission.notification.request();
-  } catch (_) {}
 
   runApp(const MyApp()); // Entry point of the app
 }
@@ -45,6 +41,7 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false, // Disable debug banner
+      navigatorKey: appNavigatorKey,
       // Light theme configuration
       theme: ThemeData.light(useMaterial3: true).copyWith(
         scaffoldBackgroundColor: Colors.grey[100], // Background color
