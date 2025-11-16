@@ -1,7 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:weather_app/screen/weather_screen.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:weather_app/models/event.dart';
+import 'package:weather_app/services/notification_service.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Hive and register adapters
+  await Hive.initFlutter();
+  Hive.registerAdapter(EventAdapter());
+  // Open events box early so repository/screens can use it
+  await Hive.openBox<Event>('events');
+  // Initialize local notifications
+  await NotificationService().init();
+  // Request notification permission on Android 13+ (and iOS as well)
+  try {
+    await Permission.notification.request();
+  } catch (_) {}
+
   runApp(const MyApp()); // Entry point of the app
 }
 
@@ -28,7 +45,6 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false, // Disable debug banner
-
       // Light theme configuration
       theme: ThemeData.light(useMaterial3: true).copyWith(
         scaffoldBackgroundColor: Colors.grey[100], // Background color
@@ -36,7 +52,9 @@ class _MyAppState extends State<MyApp> {
           color: Colors.white, // Card background color
           elevation: 6, // Shadow elevation
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)), // Rounded corners
+            borderRadius: BorderRadius.all(
+              Radius.circular(12),
+            ), // Rounded corners
           ),
         ),
         appBarTheme: const AppBarTheme(
@@ -45,7 +63,9 @@ class _MyAppState extends State<MyApp> {
           elevation: 0, // No shadow
           centerTitle: true, // Center the title
         ),
-        iconTheme: const IconThemeData(color: Colors.black), // Default icon color
+        iconTheme: const IconThemeData(
+          color: Colors.black,
+        ), // Default icon color
         textTheme: const TextTheme(
           bodyMedium: TextStyle(color: Colors.black), // Default text color
         ),

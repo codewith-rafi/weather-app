@@ -7,7 +7,9 @@ plugins {
 
 android {
     namespace = "com.example.weather_app"
-    compileSdk = flutter.compileSdkVersion
+    // Set explicit SDK versions to avoid plugin configuration issues (e.g., geolocator)
+    // Updated to 36 because some plugins (geolocator_android) require compileSdk 36+
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -25,7 +27,8 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Keep targetSdk aligned with compileSdk where reasonable
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

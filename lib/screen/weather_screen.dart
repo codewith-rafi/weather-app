@@ -4,6 +4,10 @@ import 'package:weather_app/services/weather_service.dart'; // Weather API servi
 import 'package:weather_app/info/information.dart'; // Widget for additional info display
 import 'package:weather_app/forecast/hourly_forecast.dart'; // Widget for hourly forecast cards
 import 'package:weather_app/forecast/weekly_forecast.dart'; // Widget for weekly forecast cards
+import 'package:weather_app/screen/event_list.dart';
+import 'package:weather_app/services/notification_service.dart';
+import 'package:weather_app/models/event.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 // Main screen for weather app
 class WeatherScreen extends StatefulWidget {
@@ -16,19 +20,60 @@ class WeatherScreen extends StatefulWidget {
 }
 
 class _WeatherScreenState extends State<WeatherScreen> {
-  final WeatherService _weatherService = WeatherService(); // Instance of weather service
-  late Future<Map<String, dynamic>> _weatherFuture; // Future for async weather data
+  final WeatherService _weatherService =
+      WeatherService(); // Instance of weather service
+  late Future<Map<String, dynamic>>
+  _weatherFuture; // Future for async weather data
 
   @override
   void initState() {
     super.initState();
-    _weatherFuture = _weatherService.fetchWeatherByLocation(); // Fetch weather on init
+    _weatherFuture = _weatherService
+        .fetchForecastByLocation(); // Fetch forecast on init
+    // Initialize notifications and listen for taps (payload is event id)
+    NotificationService().init();
+    NotificationService().onNotification.listen((payload) async {
+      if (payload == null) return;
+      try {
+        final id = int.parse(payload);
+        final box = Hive.box<Event>('events');
+        final event = box.get(id);
+        Map<String, dynamic> weatherJson;
+        if (event != null &&
+            event.latitude != null &&
+            event.longitude != null) {
+          weatherJson = await _weatherService.fetchCurrentWeather(
+            event.latitude!,
+            event.longitude!,
+          );
+        } else {
+          weatherJson = await _weatherService.fetchCurrentWeatherByLocation();
+        }
+        final advice = _weatherService.mapWeatherToAdvice(weatherJson);
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Weather advice'),
+            content: Text(advice),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      } catch (e) {
+        // ignore errors
+      }
+    });
   }
 
   // Refresh weather manually
   void _refreshWeather() {
     setState(() {
-      _weatherFuture = _weatherService.fetchWeatherByLocation();
+      _weatherFuture = _weatherService.fetchForecastByLocation();
     });
   }
 
@@ -64,10 +109,17 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark; // Check current theme
-    final cardColor = isDarkMode ? Colors.white12 : Colors.white; // Card background color
-    final textColor = isDarkMode ? Colors.white : Colors.black; // Primary text color
-    final subTextColor = isDarkMode ? Colors.white70 : Colors.grey[700]; // Subtext color
+    final isDarkMode =
+        Theme.of(context).brightness == Brightness.dark; // Check current theme
+    final cardColor = isDarkMode
+        ? Colors.white12
+        : Colors.white; // Card background color
+    final textColor = isDarkMode
+        ? Colors.white
+        : Colors.black; // Primary text color
+    final subTextColor = isDarkMode
+        ? Colors.white70
+        : Colors.grey[700]; // Subtext color
     final iconColor = isDarkMode ? Colors.white : Colors.black; // Icon color
 
     return Scaffold(
@@ -91,6 +143,15 @@ class _WeatherScreenState extends State<WeatherScreen> {
             icon: Icon(Icons.brightness_6, color: iconColor),
           ),
           IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const EventListScreen()),
+              );
+            },
+            icon: Icon(Icons.event, color: iconColor),
+          ),
+          IconButton(
             onPressed: _refreshWeather, // Refresh weather manually
             icon: Icon(Icons.refresh, color: iconColor),
           ),
@@ -101,11 +162,17 @@ class _WeatherScreenState extends State<WeatherScreen> {
         future: _weatherFuture, // Async weather data
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator()); // Loading indicator
+            return const Center(
+              child: CircularProgressIndicator(),
+            ); // Loading indicator
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}')); // Display error
+            return Center(
+              child: Text('Error: ${snapshot.error}'),
+            ); // Display error
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No weather data available')); // No data message
+            return const Center(
+              child: Text('No weather data available'),
+            ); // No data message
           }
 
           final weatherData = snapshot.data!;
@@ -145,21 +212,27 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
-                          Text(cityName,
-                              style: TextStyle(
-                                  fontSize: 20,
-                                  color: subTextColor,
-                                  fontWeight: FontWeight.w500)),
                           Text(
-                              DateFormat('EEE, MMM d').format(DateTime.now()),
-                              style:
-                                  TextStyle(fontSize: 16, color: subTextColor)),
+                            cityName,
+                            style: TextStyle(
+                              fontSize: 20,
+                              color: subTextColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          Text(
+                            DateFormat('EEE, MMM d').format(DateTime.now()),
+                            style: TextStyle(fontSize: 16, color: subTextColor),
+                          ),
                           const SizedBox(height: 12),
-                          Text("${currentMain['temp'].round()}°C",
-                              style: TextStyle(
-                                  fontSize: 36,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor)),
+                          Text(
+                            "${currentMain['temp'].round()}°C",
+                            style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                           Icon(
                             getWeatherIcon(currentWeather['main']),
@@ -167,8 +240,10 @@ class _WeatherScreenState extends State<WeatherScreen> {
                             color: iconColor,
                           ),
                           const SizedBox(height: 8),
-                          Text(currentWeather['main'],
-                              style: TextStyle(fontSize: 22, color: textColor)),
+                          Text(
+                            currentWeather['main'],
+                            style: TextStyle(fontSize: 22, color: textColor),
+                          ),
                         ],
                       ),
                     ),
@@ -177,11 +252,14 @@ class _WeatherScreenState extends State<WeatherScreen> {
                 const SizedBox(height: 20),
 
                 // Hourly Forecast Section
-                Text("Hourly Forecast",
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: textColor)),
+                Text(
+                  "Hourly Forecast",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 SizedBox(
                   height: 140,
@@ -193,8 +271,11 @@ class _WeatherScreenState extends State<WeatherScreen> {
                       final data = hourlyData[index];
                       return HourlyForecast(
                         time: formatHour(data['dt_txt']), // Display hour
-                        temp: "${data['main']['temp'].round()}°C", // Temperature
-                        icon: getWeatherIcon(data['weather'][0]['main']), // Weather icon
+                        temp:
+                            "${data['main']['temp'].round()}°C", // Temperature
+                        icon: getWeatherIcon(
+                          data['weather'][0]['main'],
+                        ), // Weather icon
                       );
                     },
                   ),
@@ -202,11 +283,14 @@ class _WeatherScreenState extends State<WeatherScreen> {
                 const SizedBox(height: 30),
 
                 // Weekly Forecast Section
-                Text("Weekly Forecast",
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: textColor)),
+                Text(
+                  "Weekly Forecast",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 ListView.builder(
                   shrinkWrap: true,
@@ -217,18 +301,23 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     return WeeklyForecast(
                       day: formatDay(data['dt_txt']), // Display day
                       temp: "${data['main']['temp'].round()}°C", // Temperature
-                      icon: getWeatherIcon(data['weather'][0]['main']), // Weather icon
+                      icon: getWeatherIcon(
+                        data['weather'][0]['main'],
+                      ), // Weather icon
                     );
                   },
                 ),
                 const SizedBox(height: 20),
 
                 // Additional Information Section
-                Text("Additional Information",
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: textColor)),
+                Text(
+                  "Additional Information",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -243,7 +332,8 @@ class _WeatherScreenState extends State<WeatherScreen> {
                     Information(
                       icon: Icons.air,
                       title: "Wind Speed",
-                      percentage: "${currentForecast['wind']['speed']} m/s", // Wind speed
+                      percentage:
+                          "${currentForecast['wind']['speed']} m/s", // Wind speed
                       iconColor: iconColor,
                       textColor: textColor,
                     ),
