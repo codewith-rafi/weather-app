@@ -163,27 +163,10 @@ class _EventEditScreenState extends State<EventEditScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
+                  // Replace test button with a Cancel button in the editor.
                   ElevatedButton(
-                    onPressed: () async {
-                      // Quick test: fetch weather and show advice immediately
-                      final tempEvent =
-                          widget.event ??
-                          Event(
-                            id: 0,
-                            title: _title,
-                            startDateTime: _start,
-                            reminderMinutesBefore: _reminder,
-                          );
-                      final notificationService = NotificationService();
-                      // show immediate notification
-                      await notificationService.showImmediate(
-                        999999,
-                        'Test Reminder: ${tempEvent.title}',
-                        'Tap to view weather advice',
-                        payload: tempEvent.id.toString(),
-                      );
-                    },
-                    child: const Text('Test'),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel'),
                   ),
                 ],
               ),
